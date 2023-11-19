@@ -1,8 +1,8 @@
 # data set from https://datacatalog.urban.org/dataset/estimated-low-income-jobs-lost-covid-19/resource/cd4ef086-7401-4b63-9424-7881aa2be22d
 import pandas as pd
-import plotly.express as px  # (version 4.7.0 or higher)
+import plotly.express as px 
 import plotly.graph_objects as go
-from dash import Dash, dcc, html, Input, Output  # pip install dash (version 2.0.0 or higher)
+from dash import Dash, dcc, html, Input, Output  
 
 
 
@@ -10,7 +10,7 @@ from dash import Dash, dcc, html, Input, Output  # pip install dash (version 2.0
 
 app = Dash(__name__)
 server = app.server
-# -- Import and clean data (importing csv into pandas)
+
 
 fips_to_abbreviation = {
     '01': 'AL', '02': 'AK', '04': 'AZ', '05': 'AR', '06': 'CA',
@@ -26,6 +26,32 @@ fips_to_abbreviation = {
     '56': 'WY'
 }
 
+code_to_sector = {
+    "X01": "Agriculture, Forestry, Fishing, and Hunting",
+    "X02": "Mining, Quarrying, and Oil and Gas Extraction",
+    "X03": "Utilities",
+    "X04": "Construction",
+    "X05": "Manufacturing",
+    "X06": "Wholesale Trade",
+    "X07": "Retail Trade",
+    "X08": "Transportation and Warehousing",
+    "X09": "Information",
+    "X10": "Finance and Insurance",
+    "X11": "Real Estate and Rental and Leasing",
+    "X12": "Professional, Scientific, and Technical Services",
+    "X13": "Management of Companies and Enterprises",
+    "X14": "Administrative and Support and Waste Management and Remediation Services",
+    "X15": "Educational Services",
+    "X16": "Health Care and Social Assistance",
+    "X17": "Arts, Entertainment, and Recreation",
+    "X18": "Accommodation and Food Services",
+    "X19": "Other Services (except Public Administration)",
+    "X20": "Public Administration",
+    "worker_job_loss_rate": "Total Job Loss Index"
+}
+
+
+
 stats = pd.read_csv('job_stats.csv')
 stats = stats.groupby(['state_fips','state_name','state_abbr','X01','X02','X03','X04','X05','X06','X07','X08','X09','X10','X11','X12','X13','X14','X15','X16','X17','X18','X19','X20','X000'])[['worker_job_loss_rate']].mean()
 stats.reset_index(inplace=True)
@@ -35,8 +61,8 @@ print(stats[:5])
 # App layout
 app.layout = html.Div([
 
-    html.H1("Job Loss Due to AI by Industry in USA", style={'text-align': 'center'}),
-
+    html.H1("Job Loss Due to AI by Industry in USA", className='header', style={'text-align': 'center'}),
+    html.H2("By: Keegan Whitney and Jessica Conrod", className='header', style={'text-align': 'center'}),
     dcc.Dropdown(id="slct_sector",
                  options=[
                      {"label": "Agriculture, Forestry, Fishing, and Hunting", "value": "X01"},
@@ -62,14 +88,15 @@ app.layout = html.Div([
                      {"label": "Total Job Loss Index", "value": "worker_job_loss_rate"}],
                  multi=False,
                  value="X01",
-                 style={'width': "40%"}
+                 className='dropdown',
+                 style={'width': "60%; color: #000000"}
                  ),
+    
+    html.Div(id='output_container',className='output-container', children=[] ),
+    html.Hr(),
 
-    html.Div(id='output_container', children=[]),
-    html.Br(),
-
-    dcc.Graph(id='job_loss_map', figure={})
-
+    dcc.Graph(id='job_loss_map',className='graph-container', figure={} ),
+    html.Hr()
 ])
 
 
@@ -84,56 +111,36 @@ def update_graph(option_slctd):
     print(option_slctd)
     print(type(option_slctd))
 
-    container = "The sector chosen was: {}".format(option_slctd)
+    container = ""
     print("the option selected is: ")
     print(option_slctd)
     dff = stats.copy()
+    dff['custom_hover'] = dff['state_name'] + ': ' + dff[option_slctd].astype(str) + '%'
+
     print(dff[:5])
     # Plotly Express Choropleth
     fig = px.choropleth(
         data_frame=dff,
         locationmode='USA-states',
         locations='state_abbr',
-        color=dff[option_slctd],
-        hover_data=['state_abbr', option_slctd],
+        color=option_slctd,
+        hover_name='custom_hover',
+        hover_data= {'state_name':False, 'state_abbr':False, 'custom_hover':False, option_slctd:False},
         color_continuous_scale=px.colors.sequential.YlOrRd,
         scope="usa",
         labels={'worker_job_loss_rate': '% of jobs lost'},
         template='none'
     )
 
-    '''
-    # Plotly Express
-    fig = px.choropleth(
-        data_frame=dff,
-        locationmode='USA-states',
-        locations='state_fips',
-        scope="usa",
-        color='worker_job_loss_rate',
-        hover_data=['county_fips', 'worker_job_loss_rate'],
-        color_continuous_scale=px.colors.sequential.YlOrRd,
-        labels={'worker_job_loss_rate': '% of jobs lost'},
-        template='plotly_dark'
-    )
-
-    # Plotly Graph Objects (GO)
-    fig = go.Figure(
-        data=[go.Choropleth(
-            locationmode='USA-states',
-            locations=dff['state_fips'],
-            z=dff["worker_job_loss_rate"].astype(float),
-            colorscale='Reds',
-        )]
-    )
-
     fig.update_layout(
-        title_text="Jobs Lost by Sector",
-        title_xanchor="center",
-        title_font=dict(size=24),
-        title_x=0.5,
-        geo=dict(scope='usa'),
-    )
-    '''
+    paper_bgcolor='#FFF',  
+    plot_bgcolor='#FFF',   
+    title_text="Heat Map of Job Gain or Lost in: {} Sector(s) ".format(code_to_sector[option_slctd]),
+    title_xanchor="center",
+    title_font=dict(size=24),
+    title_x=0.5,
+    geo=dict(scope='usa'),
+)
 
     return container, fig
 
